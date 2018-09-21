@@ -6,6 +6,15 @@
 #define FALSE 0
 #define TRUE 1
 #define BUFF 1024
+
+//color codes for output
+#define RED     "\x1b[31m"
+#define YELLOW  "\x1b[33m"
+#define GREEN   "\x1b[32m"
+#define BLUE    "\x1b[34m"
+#define RESET   "\x1b[0m"
+
+
 //get input from stdin, return it as a string
 char *get_input(){
 
@@ -20,6 +29,7 @@ void process_input(){
 
 }
 
+
 //returns current directory
 char *get_dir(){
   char cwd[BUFF];
@@ -28,9 +38,11 @@ char *get_dir(){
 
 //print current directory
 void print_dir(){
+  char *login = getlogin();
   char cwd[BUFF];
   getcwd(cwd, sizeof(cwd));
-  printf("%s->\n", cwd);
+  printf(BLUE "%s:" RESET, login);
+  printf(GREEN  "%s->\n" RESET, cwd);
 }
 
 //change the current directory
@@ -76,5 +88,5 @@ int main(){
   print_dir();
   change_dir("./MyShell");
   print_dir();
-  clear();
+  //clear();
 }
