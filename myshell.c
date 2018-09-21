@@ -1,10 +1,11 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<unistd.h>
 
 #define FALSE 0
 #define TRUE 1
-
+#define BUFF 1024
 //get input from stdin, return it as a string
 char *get_input(){
 
@@ -21,22 +22,27 @@ void process_input(){
 
 //returns current directory
 char *get_dir(){
-
+  char cwd[BUFF];
+  getcwd(cwd, sizeof(cwd));
 }
 
 //print current directory
 void print_dir(){
-
+  char cwd[BUFF];
+  getcwd(cwd, sizeof(cwd));
+  printf("%s->\n", cwd);
 }
 
 //change the current directory
-void change_dir(){
-
+void change_dir(char *newdir){
+  if(chdir(newdir)){
+    puts("Error, directory not found");
+  }
 }
 
 //clears the terminal
-void clear_terminal(){
-
+void clear(){
+  printf("\033[H\033[J");
 }
 
 //returns the input as a string
@@ -45,25 +51,30 @@ void echo(){
 }
 
 //pauses the terminal until the enter key is pressed
-void pause(){
+void wait(){
 
 }
 
 //displays a list of commands
 void help(){
-
+  puts("Shell commands:");
 }
 
 //exit the program
 void escape(){
   exit(0);
 }
+//list environment variable
+void environ(){
+
+}
 
 int main(){
-
-  while(TRUE){
-    //get input
-    //parse input
-    //process commands
-  }
+  printf("%s->\n", get_dir());
+  print_dir();
+  change_dir("..");
+  print_dir();
+  change_dir("./MyShell");
+  print_dir();
+  clear();
 }
