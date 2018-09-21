@@ -80,13 +80,30 @@ void escape(){
 void environ(){
 
 }
+void test(){
+  //testing clear
+  puts("Blah blag b\nlah lalala You should\n't \tsee\nany of \t\t\t\tthis\n stuff");
+  clear();
 
-int main(){
+  //testing get_dir, print_dir, and change_dir
   printf("%s->\n", get_dir());
   print_dir();
   change_dir("..");
+  printf("%s->\n", get_dir());
   print_dir();
   change_dir("./MyShell");
+  printf("%s->\n", get_dir());
   print_dir();
-  //clear();
+}
+
+void piping(){
+
+}
+
+void redirect(){
+
+}
+
+int main(){
+  test();
 }
