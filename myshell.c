@@ -30,6 +30,9 @@ void help();
 void wait();
 
 //global variables
+//for background execution
+int background;
+
 //for input/output redirection
 int input;
 int output;
@@ -121,30 +124,60 @@ void list_dir(){
     closedir(d);
   }
 }
+
+//also checks for background execution command in input "&"
+int check_background(char *args[MAX_ARGS]){
+  //reset global variable to default state
+  background = FALSE;
+
+  //loop through args until "&" is found, or end of args
+  int i = 0;
+  while (args[i] != NULL){
+    //if background char is found
+    if (!strcmp(args[i], "&")){
+      background = 1;
+      puts("Background execution");
+      break;
+    }
+    i++;
+  }
+}
+
 //check for I/O redirection commands in input
 void check_IO(char *args[MAX_ARGS]){
   //reset global variables
-  input = 0;
-  output = 0;
-  append = 0;
+  input = FALSE;
+  output = FALSE;
+  append = FALSE;
 
   //loop through args untill empty or I/O redirection found
   int i = 0;
   while (args[i] != NULL){
-    //if output redirection
+
+    //if output redirection ">"
     if (!strcmp(args[i], ">")){
       puts("Output Redirection");
+      output = TRUE;
+      outputFile = args[i+1];
     }
-    //if input redirection
-    if (!strcmp(args[i], "<")){
-      puts("Input Redirection");
-    }
-    //if output append
+
+    //if output append ">>"
     if(!strcmp(args[i], ">>")){
       puts("Append");
+      append = TRUE;
+      outputFile = args[i+1];
     }
+
+    //if input redirection "<"
+    if (!strcmp(args[i], "<")){
+      puts("Input Redirection");
+      output = TRUE;
+      inputFile = args[i+1];
+    }
+  i++;
   }
 }
+
 //clears the terminal
 void clear(){
   printf("\033[H\033[J");
@@ -210,12 +243,14 @@ void redirect(){
 
 int main(){
   //test();
-  while (1){
+  while (TRUE){
     print_dir();
-    char input[BUFF]; // = malloc(sizeof(char)*BUFF);
+    char input[BUFF];
     char *args[MAX_ARGS];
     get_input(input);
     parse_input(input, args);
+    check_IO(args);
+    check_background(args);
     process_input(input, args);
   }
 
