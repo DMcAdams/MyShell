@@ -93,13 +93,13 @@ char * getline(void) {
 */
 //breaks the input up into individual commands
 void parse_input(char *input, char *args[MAX_ARGS]){
-  int i = 0;
 
-  args[i] = strtok(input, " \n\t");
-  while (args[i] != NULL){
-    args[++i] = strtok(NULL, " \n\t");
+  args[0] = strtok(input, " \n\t");
+  for (int i = 1; i < MAX_ARGS-1; i++){
+    args[i] = strtok(NULL, " \n\t");
+    if (args[i] == NULL)
+      return;
   }
-
 }
 
 
@@ -261,34 +261,33 @@ void external_prog(char **args){
   //get the main command
   char *temp = *args;
   //move to rest of args
-  //args++;
-  pid_t pid;
   int status;
+  //fork
+  pid_t pid = fork();
 
   puts("b");
-  //fork
-  if (pid = fork() < 0){
+  if (pid < 0){
     //error if failed
     puts("Error: fork failed");
     return;
-  }//endif
+  }
   //if child
   else if (pid == 0){
     //try to run command
-    puts("cd");
     if (execvp(args[0], args) < 0){
       //error message if failed
       puts("Error: Command not recognised");
     }
-  }//end elseif
-  //if parent
+    //child exits
+    exit(1);
+  }
+  //else parent
   else{
-    puts("d");
     //if background execution not enabled
     if (!background){
-      while (wait(&status) != pid);
-    }//end if
-  } //end else
+      pid = wait(&status);
+    }
+  }
 }
 
 //displays a list of commands
@@ -353,15 +352,15 @@ int main(){
     print_dir();
     input = readline("$");
     //puts("2");
-    //char *args[MAX_ARGS];
+    char *args[MAX_ARGS];
     //puts("3");
-    //parse_input(input, args);
+    parse_input(input, args);
     //puts("4");
-    //check_IO(args);
+    check_IO(args);
     //puts("5");
-    //check_background(args);
+    check_background(args);
     //puts("6");
-    //process_input(input, args);
+    process_input(input, args);
     //puts("7");
     printf("Input: %s\n", input);
     free(input);
