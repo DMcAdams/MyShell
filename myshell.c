@@ -426,12 +426,27 @@ int main(){
     //if pipe command was detected
     if (piped == TRUE){
       //fork
-      if (fork() == 0){
-        //have child execute pipe commands
-        piping(args);
+      pid_t pid = fork();
+      //if fork failed
+      if (pid < 0){
+        puts("fork failed");
+        exit(0);
       }
-    }
+      //if child
+      else if (pid == 0){
+        //run piped commands
+        piping(args);
+      } 
+      //else parent
+      else{
+        //wait for child to finish
+        waitpid(pid, &status, 0);
+      }
+    }//end if
+
+    //else no pipe command
     else
+      //just run args
       process_input(args);
     //cleanup
     free(input);
