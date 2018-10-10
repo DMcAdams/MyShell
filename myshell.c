@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include<readline/readline.h>
+#include<readline/history.h>
 
 #define FALSE 0
 #define TRUE 1
@@ -23,9 +24,10 @@
 Function Prototypes
 -------------------*/
 void parse_input(char *input, char *args[MAX_ARGS]);
-void process_input(char *input, char *args[MAX_ARGS]);
+void process_input(char *args[MAX_ARGS]);
 void check_IO(char *args[MAX_ARGS]);
 void check_background(char *args[MAX_ARGS]);
+void check_pipes(char *args[MAX_ARGS]);
 char *get_dir();
 void print_dir();
 void change_dir(char *newdir);
@@ -43,12 +45,16 @@ Global Variables
 
 //for background execution
 int background;
+int status;
+
+//for pipes
+int piped;
+char **args2;
 
 //for input/output redirection
 int input;
 int output;
 int append;
-
 
 //file names for i/o redirection
 char *inputFile;
@@ -58,39 +64,6 @@ char *outputFile;
 Input Processing
 -------------------*/
 
-/*get input from stdin
-char * getline(void) {
-
-  //input buffer
-  char *input = malloc(BUFF);
-  //track size of input
-  size_t maxlength = BUFF;
-  size_t length = BUFF;
-  //used to read each character
-  int c;
-
-  //loop through
-  while(TRUE) {
-    c = fgetc(stdin);
-    //if not enough memory for buffer
-    if (--length = 0){
-        //reset length
-        length = maxlength;
-        //double max length
-        maxlength *=2;
-        //realloc
-        realloc(input, maxlength);
-    }
-
-    //if end of input
-    if(c == '\0'){
-      break;
-    }
-    
-  }
-
-}
-*/
 //breaks the input up into individual commands
 void parse_input(char *input, char *args[MAX_ARGS]){
 
@@ -104,7 +77,7 @@ void parse_input(char *input, char *args[MAX_ARGS]){
 
 
 //processes the input and execute the desired commands
-void process_input(char *input, char *args[MAX_ARGS]){
+void process_input(char *args[MAX_ARGS]){
   //change directory command
   if (!strcmp(args[0], "cd") || !strcmp(args[0], "chdir")) {
     change_dir(args[1]);
@@ -124,7 +97,10 @@ void process_input(char *input, char *args[MAX_ARGS]){
   else if (!strcmp(args[0], "ls") || !strcmp(args[0], "dir")) {
     list_dir();
   }
-
+  //pause 
+  else if (!strcmp(args[0], "pause")) {
+    pause_cmd();
+  }
   //else run external program
   else {
     external_prog(args);
@@ -175,19 +151,44 @@ void check_background(char *args[MAX_ARGS]){
   int i = 0;
   while (args[i] != NULL){
     //if background char is found
-    if (!strcmp(args[i], "&")){
-      background = 1;
+    if (strcmp(args[i], "&") == 0){
+      background = TRUE ;
+      args[i] = NULL;
       puts("Background execution");
       break;
     }
     i++;
   }
 }
+//check for any piping commands
+void check_pipes(char *args[MAX_ARGS]){
+  //reset piped value
+  piped = FALSE;
+  args2 = args;
 
+  //loop until pipe command "|" or end of args found
+  while (*args2 != NULL){
+    //if pipe command found
+    if (strcmp(*args2, "|") == 0){
+      //set piped to true
+      piped = TRUE;
+      //set "|" to null, seperates args and args2
+      *args2 = NULL;
+      //move args2 to next argument
+      args2++;
+      //exit function
+      return;
+    }
+    //next arg
+    args2++;
+  }  
+
+
+}
 /*-----------------
-Built-In commands
-(cd, clr, ls, ect.)
+Helper Functions
 -------------------*/
+
 
 //returns current directory
 char *get_dir(){
@@ -195,16 +196,27 @@ char *get_dir(){
   char cwd[BUFF];
   //copy current directory into string
   getcwd(cwd, sizeof(cwd));
+  //get user's login
+  char *login = getlogin();
+  //used for formating
+  char *temp1 = malloc(sizeof(char)* 2 * BUFF);
+  char *temp2 = malloc(sizeof(char)*BUFF);
+  //add color to strings
+  sprintf(temp1, GREEN "%s:" RESET , login);
+  sprintf(temp2, BLUE "%s>" RESET, cwd);
+  //combine strings
+  strcat(temp1, temp2);
+  //return string
+  return temp1;
 }
 
 //print current directory
 void print_dir(){
-  char *login = getlogin();
-  char cwd[BUFF];
-  getcwd(cwd, sizeof(cwd));
-  printf(BLUE "%s:" RESET, login);
-  printf(GREEN "%s" RESET, cwd);
-  //printf(" ");
+  //char *login = getlogin();
+  //char cwd[BUFF];
+  //getcwd(cwd, sizeof(cwd));
+  //printf(BLUE "%s:" RESET, login);
+  //printf(GREEN "%s" RESET, cwd);
 }
 
 //change the current directory
@@ -215,6 +227,11 @@ void change_dir(char *newdir){
     puts("Error, directory not found");
   }
 }
+
+/*-----------------
+Built-In commands
+(cd, clr, ls, ect.)
+-------------------*/
 
 //list contentents of the directory
 void list_dir(){
@@ -257,7 +274,6 @@ void environ(){
 
 //handles execution of external programs
 void external_prog(char **args){
-  puts("a");
   //get the main command
   char *temp = *args;
   //move to rest of args
@@ -265,7 +281,6 @@ void external_prog(char **args){
   //fork
   pid_t pid = fork();
 
-  puts("b");
   if (pid < 0){
     //error if failed
     puts("Error: fork failed");
@@ -279,14 +294,16 @@ void external_prog(char **args){
       puts("Error: Command not recognised");
     }
     //child exits
-    exit(1);
+    exit(0);
   }
   //else parent
   else{
     //if background execution not enabled
-    if (!background){
-      pid = wait(&status);
+    if (background != TRUE){
+      //wait for child to finish
+      waitpid(pid, &status, 0);
     }
+    return;
   }
 }
 
@@ -297,6 +314,8 @@ void help(){
 
 //pauses the terminal until the enter key is pressed
 void pause_cmd(){
+  char *temp = readline("Please press enter:");
+  free (temp);
 }
 
 void test(){
@@ -336,9 +355,49 @@ void test(){
 
 
 
-void piping(){
+void piping(char **args){
+  //pipe file descriptors
+  int pfds[2];
 
+  //create pipe
+  if ( pipe(pfds) == 0 ) {
+    //fork 
+    pid_t pid = fork();
+    //if fork failed
+    if (pid < 0){
+      puts("Error: Fork failed");
+      exit(1);
+    }
+    //else if child
+    else if ( pid == 0 ) {
+
+      // close stdout
+      close(1);
+      //use pipe's write end as stdout
+      dup2( pfds[1], 1 );
+      //close read end of pipe
+      close( pfds[0] );
+      //execute command
+      process_input(args);
+      //kill child
+      exit(0);
+    }
+    //else parent
+    else {
+      //close stdin
+      close(0);
+      //use pipe's read end as stdin
+      dup2( pfds[0], 0 );
+      //close write end of pipe
+      close( pfds[1] );
+      //execute  command
+      process_input(args2);
+      //kill parent
+      exit(0);
+    }
+  }
 }
+
 
 void redirect(){
 
@@ -347,23 +406,35 @@ void redirect(){
 int main(){
   //test();
   while (TRUE){
-    //puts("1");
+    //holds input
     char *input;
-    print_dir();
-    input = readline("$");
-    //puts("2");
     char *args[MAX_ARGS];
-    //puts("3");
+    //print out terminal promt;
+    //get prompt string
+    char *prompt = get_dir();
+    //get input
+    input = readline(prompt);
+    add_history(input);
+    //parse the input
     parse_input(input, args);
-    //puts("4");
+    //check for IO redirection
     check_IO(args);
-    //puts("5");
+    //check for background execution
     check_background(args);
-    //puts("6");
-    process_input(input, args);
-    //puts("7");
-    printf("Input: %s\n", input);
+    //check for pipe commands
+    check_pipes(args);
+    //if pipe command was detected
+    if (piped == TRUE){
+      //fork
+      if (fork() == 0){
+        //have child execute pipe commands
+        piping(args);
+      }
+    }
+    else
+      process_input(args);
+    //cleanup
     free(input);
-    //args[1] = NULL;
+    free(prompt);
   }
 }
