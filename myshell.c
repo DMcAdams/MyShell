@@ -115,6 +115,10 @@ void process_input(char *args[MAX_ARGS]){
   }
 }
 
+/*-----------------
+I/O Redirection
+-------------------*/
+
 //check for I/O redirection commands in input
 void check_IO(char **args){
   //reset global variables
@@ -122,33 +126,96 @@ void check_IO(char **args){
   output_redir = FALSE;
   append_redir = FALSE;
 
+  int i = 0;
   //used to move around args
   char **temp = args;
   //loop through args untill empty or I/O redirection found
-  while (*args != NULL){
+  while (args[i] != NULL && i < MAX_ARGS){
 
     //if output redirection ">"
     if (!strcmp(args[i], ">")){
       puts("Output Redirection");
       output_redir = TRUE;
-      output_file = args[i+1];
+      args[i] = NULL;
+      output_file = args[++i];
     }
 
     //if output append ">>"
     if(!strcmp(args[i], ">>")){
       puts("Append");
       append_redir = TRUE;
-      output_file = args[i+1];
+      args[i] = NULL;
+      output_file = args[++i];
     }
 
     //if input redirection "<"
     if (!strcmp(args[i], "<")){
       puts("Input Redirection");
-      output_redir = TRUE;
-      input_file = args[i+1];
+      input_redir = TRUE;
+      args[i] = NULL;
+      input_file = args[++i];
+      printf("%s\n" , input_file);
     }
   i++;
   }
+}
+
+void redirect(char **args){
+  //if input redirection
+  if (input_redir == TRUE){
+    //open input file
+    int in = open(input_file,O_RDONLY);
+    //if file not found
+    if (in < 0){
+      //error message
+      puts("Error: Input file not found");
+      //crash
+      exit(1);
+    }
+
+    //replace stdin with input file
+    dup2(in,STDIN_FILENO);
+    //close file
+    close(in);
+  }
+
+  //if output redirection
+  if (output_redir == TRUE){
+    //open output file
+    int out = open(output_file,O_WRONLY|O_CREAT,0666); // Should also be symbolic values for access rights
+    //if file not found
+    if (out < 0){
+      //error message
+      puts("Error: Output file not found");
+      //quit
+      exit(0);
+    }   
+    //replace stdout with output file
+    dup2(out,STDOUT_FILENO);
+    //close output file
+    close(out);
+    //execute args
+  }
+
+  //if appending output redirection
+  else if (append_redir == TRUE){
+    //open output file in append mode
+    int out = open(output_file, O_WRONLY|O_APPEND|O_CREAT,0666); // Should also be symbolic values for access rights
+    if (out < 0){
+      //error message
+      puts("Error: Output file not found");
+      //quit
+      exit(0);
+    }
+    //replace stdout with output file
+    dup2(out,STDOUT_FILENO);
+    //close output file
+    close(out);
+    //execute args
+
+  }
+  //run commands
+  external_prog(args);
 }
 
 //also checks for background execution command in input "&"
@@ -169,6 +236,11 @@ void check_background(char *args[MAX_ARGS]){
     i++;
   }
 }
+
+/*-----------------
+Piping
+-------------------*/
+
 //check for any piping commands
 void check_pipes(char *args[MAX_ARGS]){
   //reset piped value
@@ -191,13 +263,134 @@ void check_pipes(char *args[MAX_ARGS]){
     //next arg
     args2++;
   }  
-
-
 }
+
+
+void piping(char **args){
+  //pipe file descriptors
+  int pfds[2];
+
+  //create pipe
+  if ( pipe(pfds) == 0 ) {
+    //fork 
+    pid_t pid = fork();
+    //if fork failed
+    if (pid < 0){
+      puts("Error: Fork failed");
+      exit(1);
+    }
+    //else if child
+    else if ( pid == 0 ) {
+
+      // close stdout
+      close(1);
+      //use pipe's write end as stdout
+      dup2( pfds[1], 1 );
+      //close read end of pipe
+      close( pfds[0] );
+      //execute command
+      process_input(args);
+      //kill child
+      exit(0);
+    }
+    //else parent
+    else {
+      //close stdin
+      close(0);
+      //use pipe's read end as stdin
+      dup2( pfds[0], 0 );
+      //close write end of pipe
+      close( pfds[1] );
+      //execute  command
+      process_input(args2);
+      //kill parent
+      exit(0);
+    }
+  }
+}
+/*-----------------------
+Scripts & Batch Commands
+-----------------------*/
+
+//execute batch commands
+void batch_commands(char **args){
+  //check for IO redirection
+    check_IO(args);
+    //check for background execution
+    check_background(args);
+    //check for pipe commands
+    check_pipes(args);
+    
+    //if pipe command was detected
+    if (piped == TRUE){
+      //fork
+      pid_t pipe_pid = fork();
+      //if fork failed
+      if (pipe_pid < 0){
+        puts("fork failed");
+        exit(0);
+      }
+      //if child
+      else if (pipe_pid == 0){
+        //run piped commands
+        piping(args);
+      } 
+      //else parent
+      else{
+        //wait for child to finish
+        waitpid(pipe_pid, &status, 0);
+      }
+    }//end if
+
+    //if I/O redirection was found
+    else if (input_redir == TRUE || output_redir == TRUE || append_redir == TRUE){
+      //fork
+      pid_t io_pid = fork();
+      //if fork failed
+      if (io_pid < 0){
+        puts("fork failed");
+        exit(0);
+      }
+      //if child
+      else if (io_pid == 0){
+        //run piped commands
+        redirect(args);
+        //kill child process
+        exit(0);
+      } 
+      //else parent
+      else{
+        //wait for child to finish
+        waitpid(io_pid, &status, 0);
+      }
+    }
+    //else no pipe or i/o redirection
+    else{
+      //just run args
+      process_input(args);
+    }
+}
+
+//check if command is a script file ".sh"
+int check_script(char *arg){
+  //create temp pointer to go through arg
+  char *temp = arg;
+  //check the third to last letter of arg
+  while (*(temp+3) != '\0'){
+    temp++;
+  }
+  //if last three chars = ."sh"
+  if (!strcmp(temp, ".sh"))
+    //return true
+    return TRUE;
+  //else return false
+  else 
+    return FALSE;
+}
+
 /*-----------------
 Helper Functions
 -------------------*/
-
 
 //returns current directory
 char *get_dir(){
@@ -228,6 +421,11 @@ void print_dir(){
   //printf(GREEN "%s" RESET, cwd);
 }
 
+/*-----------------
+Built-In commands
+(cd, clr, ls, ect.)
+-------------------*/
+
 //change the current directory
 void change_dir(char *newdir){
   //change current directory to input string
@@ -236,11 +434,6 @@ void change_dir(char *newdir){
     puts("Error, directory not found");
   }
 }
-
-/*-----------------
-Built-In commands
-(cd, clr, ls, ect.)
--------------------*/
 
 //list contentents of the directory
 void list_dir(){
@@ -308,22 +501,25 @@ void external_prog(char **args){
   int status;
   //fork
   pid_t pid = fork();
-
+  //if fork failed
   if (pid < 0){
-    //error if failed
+    //error message
     puts("Error: fork failed");
-    return;
+    exit(1);
   }
-  //if child
+
+  //else if child
   else if (pid == 0){
     //try to run command
     if (execvp(args[0], args) < 0){
       //error message if failed
       puts("Error: Command not recognised");
     }
+
     //child exits
     exit(0);
   }
+
   //else parent
   else{
     //if background execution not enabled
@@ -377,95 +573,12 @@ void test(){
     printf("%s\n", input);
     free(input);
   }
-
+  
   exit(0);
 }
-
-
-
-void piping(char **args){
-  //pipe file descriptors
-  int pfds[2];
-
-  //create pipe
-  if ( pipe(pfds) == 0 ) {
-    //fork 
-    pid_t pid = fork();
-    //if fork failed
-    if (pid < 0){
-      puts("Error: Fork failed");
-      exit(1);
-    }
-    //else if child
-    else if ( pid == 0 ) {
-
-      // close stdout
-      close(1);
-      //use pipe's write end as stdout
-      dup2( pfds[1], 1 );
-      //close read end of pipe
-      close( pfds[0] );
-      //execute command
-      process_input(args);
-      //kill child
-      exit(0);
-    }
-    //else parent
-    else {
-      //close stdin
-      close(0);
-      //use pipe's read end as stdin
-      dup2( pfds[0], 0 );
-      //close write end of pipe
-      close( pfds[1] );
-      //execute  command
-      process_input(args2);
-      //kill parent
-      exit(0);
-    }
-  }
-}
-
-
-void redirect(char **args){
-  //if input redirection
-  if (input_redir == TRUE){
-    //open input file
-    int in = open(input_file,O_RDONLY);
-    //replace stdin with input file
-    dup2(in,STDIN_FILENO);
-    //close file
-    close(in);
-  }
-
-  //if output redirection
-  if (output_redir == TRUE){
-    //open output file
-    int out = open(output_file,O_WRONLY|O_CREAT,0666); // Should also be symbolic values for access rights
-    //replace stdout with output file
-    dup2(out,STDOUT_FILENO);
-    //close output file
-    close(out);
-    //execute args
-  }
-
-  //if appending output redirection
-  else if (append_redir == TRUE){
-    //open output file in append mode
-    int out = open(output_file, O_WRONLY|O_APPEND|O_CREAT,0666); // Should also be symbolic values for access rights
-    //replace stdout with output file
-    dup2(out,STDOUT_FILENO);
-    //close output file
-    close(out);
-    //execute args
-
-  }
-  //run commands
-  process_input(args);
-}
-
-int main(){
-  //test();
+//main loop for regular shell use
+//follows a cycle of fetch -> parse -> execute 
+void shell_loop(){
   while (TRUE){
     //holds input
     char *input;
@@ -478,6 +591,10 @@ int main(){
     add_history(input);
     //parse the input
     parse_input(input, args);
+    //check for shell script file ".sh"
+    if (check_script(*args)){
+      puts("script");
+    }
     //check for IO redirection
     check_IO(args);
     //check for background execution
@@ -528,12 +645,25 @@ int main(){
         waitpid(io_pid, &status, 0);
       }
     }
-    //else no pipe command
-    else
+    //else no pipe or i/o redirection
+    else{
       //just run args
       process_input(args);
+    }
     //cleanup
     free(input);
     free(prompt);
   }
+}
+
+int main(int argc, char **argv){
+  //if there are batch commands
+  if(argc > 1){
+    //run commands
+    batch_commands(++argv);
+    //quit
+    exit(0);
+  }
+  //test();
+  shell_loop();
 }
