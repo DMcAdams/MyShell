@@ -1,10 +1,13 @@
+#include<dirent.h>
+#include<fcntl.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
 #include<unistd.h>
-#include<dirent.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+
+#include<sys/types.h>
+#include<sys/wait.h>
+
 #include<readline/readline.h>
 #include<readline/history.h>
 
@@ -13,7 +16,9 @@
 #define BUFF 1024
 #define MAX_ARGS 20
 
-//color codes for output
+/*-----------------
+Output Color Codes
+-------------------*/
 #define RED     "\x1b[31m"
 #define YELLOW  "\x1b[33m"
 #define GREEN   "\x1b[32m"
@@ -52,13 +57,13 @@ int piped;
 char **args2;
 
 //for input/output redirection
-int input;
-int output;
-int append;
+int input_redir;
+int output_redir;
+int append_redir;
 
 //file names for i/o redirection
-char *inputFile;
-char *outputFile;
+char *input_file;
+char *output_file;
 
 /*-----------------
 Input Processing
@@ -87,7 +92,10 @@ void process_input(char *args[MAX_ARGS]){
   else if (!strcmp(args[0], "clear") || !strcmp(args[0], "clr")) {
     clear();
   }
-
+  //echo command
+  else if (!strcmp(args[0], "echo")) {
+    echo(args);
+  }
   //exit command
   else if (!strcmp(args[0], "exit") || !strcmp(args[0], "quit") ) {
     escape();
@@ -108,35 +116,36 @@ void process_input(char *args[MAX_ARGS]){
 }
 
 //check for I/O redirection commands in input
-void check_IO(char *args[MAX_ARGS]){
+void check_IO(char **args){
   //reset global variables
-  input = FALSE;
-  output = FALSE;
-  append = FALSE;
+  input_redir = FALSE;
+  output_redir = FALSE;
+  append_redir = FALSE;
 
+  //used to move around args
+  char **temp = args;
   //loop through args untill empty or I/O redirection found
-  int i = 0;
-  while (args[i] != NULL){
+  while (*args != NULL){
 
     //if output redirection ">"
     if (!strcmp(args[i], ">")){
       puts("Output Redirection");
-      output = TRUE;
-      outputFile = args[i+1];
+      output_redir = TRUE;
+      output_file = args[i+1];
     }
 
     //if output append ">>"
     if(!strcmp(args[i], ">>")){
       puts("Append");
-      append = TRUE;
-      outputFile = args[i+1];
+      append_redir = TRUE;
+      output_file = args[i+1];
     }
 
     //if input redirection "<"
     if (!strcmp(args[i], "<")){
       puts("Input Redirection");
-      output = TRUE;
-      inputFile = args[i+1];
+      output_redir = TRUE;
+      input_file = args[i+1];
     }
   i++;
   }
@@ -257,8 +266,27 @@ void clear(){
 }
 
 //returns the input as a string
-void echo(){
+void echo(char **args){
+  //skip "echo" part of command
+  args++;
+  
+  //make sure there is text to output
+  if (args!= NULL){
+    //print first arg
+    printf("%s", *args);
+    //move to next arg
+    args++;
 
+    //loop until end of args
+    while (*args != NULL){
+      //print current arg
+      printf(" %s", *args);
+      //move to next arg
+      args++;
+    }
+  }
+  //new line
+  puts("");
 }
 
 //exit the program
@@ -399,8 +427,41 @@ void piping(char **args){
 }
 
 
-void redirect(){
+void redirect(char **args){
+  //if input redirection
+  if (input_redir == TRUE){
+    //open input file
+    int in = open(input_file,O_RDONLY);
+    //replace stdin with input file
+    dup2(in,STDIN_FILENO);
+    //close file
+    close(in);
+  }
 
+  //if output redirection
+  if (output_redir == TRUE){
+    //open output file
+    int out = open(output_file,O_WRONLY|O_CREAT,0666); // Should also be symbolic values for access rights
+    //replace stdout with output file
+    dup2(out,STDOUT_FILENO);
+    //close output file
+    close(out);
+    //execute args
+  }
+
+  //if appending output redirection
+  else if (append_redir == TRUE){
+    //open output file in append mode
+    int out = open(output_file, O_WRONLY|O_APPEND|O_CREAT,0666); // Should also be symbolic values for access rights
+    //replace stdout with output file
+    dup2(out,STDOUT_FILENO);
+    //close output file
+    close(out);
+    //execute args
+
+  }
+  //run commands
+  process_input(args);
 }
 
 int main(){
@@ -423,27 +484,50 @@ int main(){
     check_background(args);
     //check for pipe commands
     check_pipes(args);
+    
     //if pipe command was detected
     if (piped == TRUE){
       //fork
-      pid_t pid = fork();
+      pid_t pipe_pid = fork();
       //if fork failed
-      if (pid < 0){
+      if (pipe_pid < 0){
         puts("fork failed");
         exit(0);
       }
       //if child
-      else if (pid == 0){
+      else if (pipe_pid == 0){
         //run piped commands
         piping(args);
       } 
       //else parent
       else{
         //wait for child to finish
-        waitpid(pid, &status, 0);
+        waitpid(pipe_pid, &status, 0);
       }
     }//end if
 
+    //if I/O redirection was found
+    else if (input_redir == TRUE || output_redir == TRUE || append_redir == TRUE){
+      //fork
+      pid_t io_pid = fork();
+      //if fork failed
+      if (io_pid < 0){
+        puts("fork failed");
+        exit(0);
+      }
+      //if child
+      else if (io_pid == 0){
+        //run piped commands
+        redirect(args);
+        //kill child process
+        exit(0);
+      } 
+      //else parent
+      else{
+        //wait for child to finish
+        waitpid(io_pid, &status, 0);
+      }
+    }
     //else no pipe command
     else
       //just run args
