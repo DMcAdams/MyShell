@@ -104,6 +104,7 @@ void process_input(char *args[MAX_ARGS]){
   //list command
   else if (!strcmp(args[0], "ls") || !strcmp(args[0], "dir")) {
     list_dir();
+    return;
   }
   //pause 
   else if (!strcmp(args[0], "pause")) {
@@ -308,6 +309,7 @@ void piping(char **args){
     }
   }
 }
+
 /*-----------------------
 Scripts & Batch Commands
 -----------------------*/
@@ -388,11 +390,38 @@ int check_script(char *arg){
     return FALSE;
 }
 
+//run each line of a .sh file
+void run_script(char *arg){
+  //open file
+  FILE *file = fopen(arg, "r");
+  //if file opened
+  if (file != NULL){
+    //used to hold each line of the file
+    char buffer[BUFF];
+    //read next line untill end of file
+    while (fgets(buffer, sizeof(buffer), file) != NULL){
+      
+      printf("%s\n", buffer); 
+      //break up line into individual args
+      char *args[MAX_ARGS];
+      parse_input(buffer, args);
+      batch_commands(args);
+    }
+    //close file
+    fclose(file);
+    return;
+  }
+  //if file could not be opened
+  else{
+    printf("Error: %s could not be opened", arg);
+  }
+}
+
 /*-----------------
 Helper Functions
 -------------------*/
 
-//returns current directory
+//returns current directoryhttps://stackoverflow.com/questions/36208019/comlvalvalue required as increment operandlue required as increment operandmand-line-arguments-using-if-else-statements-in-c
 char *get_dir(){
   //holds string containing directory
   char cwd[BUFF];
@@ -592,8 +621,12 @@ void shell_loop(){
     //parse the input
     parse_input(input, args);
     //check for shell script file ".sh"
-    if (check_script(*args)){
-      puts("script");
+    if (check_script(args[0])){
+      run_script(args[0]);
+      //clean up
+      free(input);
+      //restart loop
+      continue;
     }
     //check for IO redirection
     check_IO(args);
