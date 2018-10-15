@@ -31,8 +31,13 @@ Function Prototypes
 void parse_input(char *input, char *args[MAX_ARGS]);
 void process_input(char *args[MAX_ARGS]);
 void check_IO(char *args[MAX_ARGS]);
+void redirect(char **args);
 void check_background(char *args[MAX_ARGS]);
 void check_pipes(char *args[MAX_ARGS]);
+void piping(char **args);
+void batch_commands(char **args);
+int check_script(char *arg);
+void run_script(char *arg);
 char *get_dir();
 void print_dir();
 void change_dir(char *newdir);
@@ -322,7 +327,14 @@ void batch_commands(char **args){
     check_background(args);
     //check for pipe commands
     check_pipes(args);
+
+    //if command is a script file
+    if (check_script(args[0])){
+      run_script(args[0]);
+      //end commands
+      return;
     
+    }
     //if pipe command was detected
     if (piped == TRUE){
       //fork
@@ -421,7 +433,7 @@ void run_script(char *arg){
 Helper Functions
 -------------------*/
 
-//returns current directoryhttps://stackoverflow.com/questions/36208019/comlvalvalue required as increment operandlue required as increment operandmand-line-arguments-using-if-else-statements-in-c
+//returns current directory
 char *get_dir(){
   //holds string containing directory
   char cwd[BUFF];
@@ -698,5 +710,6 @@ int main(int argc, char **argv){
     exit(0);
   }
   //test();
+  //start main loop of shell
   shell_loop();
 }
