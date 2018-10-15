@@ -1,3 +1,17 @@
+/*-----------------
+Programmer: Darrin McAdams
+Class: CIS3207-004
+Professor: Dr. J.Payton
+Date:10/17/2018
+
+Purpose:
+
+This is a unix-like shell for issuing commands through the terminal.
+  It features basic in-house functions like cd, ls, and echo. Basic piping, 
+  I/O redirection, background execution, command line args, and .sh execution
+  are supported.
+
+-------------------*/
 #include<dirent.h>
 #include<fcntl.h>
 #include<stdio.h>
@@ -13,12 +27,15 @@
 
 #define FALSE 0
 #define TRUE 1
+//size of input buffer
 #define BUFF 1024
+//max args in a command
 #define MAX_ARGS 20
 
 /*-----------------
 Output Color Codes
 -------------------*/
+
 #define RED     "\x1b[31m"
 #define YELLOW  "\x1b[33m"
 #define GREEN   "\x1b[32m"
@@ -28,6 +45,7 @@ Output Color Codes
 /*-----------------
 Function Prototypes
 -------------------*/
+
 void parse_input(char *input, char *args[MAX_ARGS]);
 void process_input(char *args[MAX_ARGS]);
 void check_IO(char *args[MAX_ARGS]);
