@@ -67,6 +67,7 @@ void environ();
 void escape();
 void help();
 void pause_cmd();
+void shell_loop();
 
 /*-----------------
 Global Variables
