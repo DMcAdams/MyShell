@@ -57,11 +57,11 @@ void batch_commands(char **args);
 int check_script(char *arg);
 void run_script(char *arg);
 char *get_dir();
-void print_dir();
 void change_dir(char *newdir);
-void list_dir();
+void list_dir(char **args);
 void clear();
 void echo();
+void environ();
 void escape();
 void external_prog(char **args);
 void help();
@@ -126,12 +126,16 @@ void process_input(char *args[MAX_ARGS]){
 
   //list command
   else if (!strcmp(args[0], "ls") || !strcmp(args[0], "dir")) {
-    list_dir();
+    list_dir(args);
     return;
   }
   //pause 
   else if (!strcmp(args[0], "pause")) {
     pause_cmd();
+  }
+  //environ
+  else if (!strcmp(args[0], "environ")) {
+    environ();
   }
   //else run external program
   else {
@@ -158,28 +162,31 @@ void check_IO(char **args){
 
     //if output redirection ">"
     if (!strcmp(args[i], ">")){
-      puts("Output Redirection");
       output_redir = TRUE;
+      //remove redirection arg
       args[i] = NULL;
+      //save output file arg
       output_file = args[++i];
     }
 
     //if output append ">>"
     if(!strcmp(args[i], ">>")){
-      puts("Append");
       append_redir = TRUE;
+      //remove redirection arg
       args[i] = NULL;
+      //save output file arg
       output_file = args[++i];
     }
 
     //if input redirection "<"
     if (!strcmp(args[i], "<")){
-      puts("Input Redirection");
       input_redir = TRUE;
+      //remove redirection arg
       args[i] = NULL;
+      //save input file arg
       input_file = args[++i];
-      printf("%s\n" , input_file);
     }
+  //next arg
   i++;
   }
 }
@@ -448,6 +455,48 @@ void run_script(char *arg){
 }
 
 /*-----------------
+External Execution
+-------------------*/
+
+//handles execution of external programs
+void external_prog(char **args){
+  //get the main command
+  char *temp = *args;
+  //move to rest of args
+  int status;
+  //fork
+  pid_t pid = fork();
+  //if fork failed
+  if (pid < 0){
+    //error message
+    puts("Error: fork failed");
+    exit(1);
+  }
+
+  //else if child
+  else if (pid == 0){
+    //try to run command
+    if (execvp(args[0], args) < 0){
+      //error message if failed
+      puts("Error: Command not recognised");
+    }
+
+    //child exits
+    exit(0);
+  }
+
+  //else parent
+  else{
+    //if background execution not enabled
+    if (background != TRUE){
+      //wait for child to finish
+      waitpid(pid, &status, 0);
+    }
+    return;
+  }
+}
+
+/*-----------------
 Helper Functions
 -------------------*/
 
@@ -471,15 +520,6 @@ char *get_dir(){
   return temp1;
 }
 
-//print current directory
-void print_dir(){
-  //char *login = getlogin();
-  //char cwd[BUFF];
-  //getcwd(cwd, sizeof(cwd));
-  //printf(BLUE "%s:" RESET, login);
-  //printf(GREEN "%s" RESET, cwd);
-}
-
 /*-----------------
 Built-In commands
 (cd, clr, ls, ect.)
@@ -490,24 +530,45 @@ void change_dir(char *newdir){
   //change current directory to input string
   if(chdir(newdir)){
     //if change_dir() failed
-    puts("Error, directory not found");
+    puts("Error: directory not found");
   }
 }
 
 //list contentents of the directory
-void list_dir(){
-  char *temp = NULL;
+void list_dir(char **args){
+  //get next arg
+  args++;
+  //holds current file's name
+  char *temp;
   //holds size
   int size = 2;
   //holds all elements in dir as a string
   char *buffer = malloc(sizeof(char)*size);
+  //directory struct
   DIR *d;
   struct dirent *dir;
+  //open directory
   d = opendir(".");
+  //if directory found
   if (d){
+    //loop untill end of file
     while ((dir = readdir(d)) != NULL){
-      printf("%s\n", dir->d_name);
-    }
+      //get name of file
+      temp = dir->d_name;
+      //if name begins with '.'
+      if (*temp == '.'){
+        //and no "-a" arg 
+        if (*args != NULL && !strcmp(*args, "-a") != 0){
+          //print filename
+          printf("%s\n", dir->d_name);
+        }
+      }
+      //else just print the filename
+      else{
+        printf("%s\n", dir->d_name);
+      }
+    }//while 
+    //close directory
     closedir(d);
   }
 }
@@ -548,45 +609,15 @@ void escape(){
 
 //list environment variable
 void environ(){
-  
-
-}
-
-//handles execution of external programs
-void external_prog(char **args){
-  //get the main command
-  char *temp = *args;
-  //move to rest of args
-  int status;
-  //fork
-  pid_t pid = fork();
-  //if fork failed
-  if (pid < 0){
-    //error message
-    puts("Error: fork failed");
-    exit(1);
+  //get PATH variable
+  const char *s = getenv("PATH");
+  //if path is NULL
+  if (s == NULL){
+    puts("PATH not found");
   }
-
-  //else if child
-  else if (pid == 0){
-    //try to run command
-    if (execvp(args[0], args) < 0){
-      //error message if failed
-      puts("Error: Command not recognised");
-    }
-
-    //child exits
-    exit(0);
-  }
-
-  //else parent
+  //else print out path
   else{
-    //if background execution not enabled
-    if (background != TRUE){
-      //wait for child to finish
-      waitpid(pid, &status, 0);
-    }
-    return;
+    printf("PATH = %s\n", s);
   }
 }
 
@@ -606,15 +637,12 @@ void test(){
   puts("Blah blag b\nlah lalala You should\n't \tsee\nany of \t\t\t\tthis\n stuff");
   clear();
 
-  //testing get_dir, print_dir, and change_dir
+  //testing get_dir and change_dir
   printf("%s->\n", get_dir());
-  print_dir();
   change_dir("..");
   printf("%s->\n", get_dir());
-  print_dir();
   change_dir("./MyShell");
   printf("%s->\n", get_dir());
-  print_dir();
 
   char *args[BUFF];
   char input1[] = "the quick & brown > Fox";
