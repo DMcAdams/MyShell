@@ -56,6 +56,7 @@ void piping(char **args);
 void batch_commands(char **args);
 int check_script(char *arg);
 void run_script(char *arg);
+char *get_prompt();
 char *get_dir();
 void change_dir(char *newdir);
 void list_dir(char **args);
@@ -437,12 +438,14 @@ void run_script(char *arg){
     char buffer[BUFF];
     //read next line untill end of file
     while (fgets(buffer, sizeof(buffer), file) != NULL){
-      
-      printf("%s\n", buffer); 
+      char *dir = get_dir();
+      printf("\n<SCRIPT>\n%s%s\n", dir, buffer); 
       //break up line into individual args
       char *args[MAX_ARGS];
       parse_input(buffer, args);
       batch_commands(args);
+      //cleanup
+      free(dir);
     }
     //close file
     fclose(file);
@@ -500,8 +503,8 @@ void external_prog(char **args){
 Helper Functions
 -------------------*/
 
-//returns current directory
-char *get_dir(){
+//Get shell prompt
+char *get_prompt(){
   //holds string containing directory
   char cwd[BUFF];
   //copy current directory into string
@@ -520,6 +523,14 @@ char *get_dir(){
   return temp1;
 }
 
+char *get_dir(){
+  //holds string containing directory
+  char *cwd = malloc(sizeof(char)*BUFF);
+  //copy current directory into string
+  getcwd(cwd, sizeof(cwd));
+  //return cwd
+  return cwd;
+}
 /*-----------------
 Built-In commands
 (cd, clr, ls, ect.)
@@ -567,7 +578,8 @@ void list_dir(char **args){
       else{
         printf("%s\n", dir->d_name);
       }
-    }//while 
+    }//end while
+
     //close directory
     closedir(d);
   }
@@ -637,28 +649,88 @@ void test(){
   puts("Blah blag b\nlah lalala You should\n't \tsee\nany of \t\t\t\tthis\n stuff");
   clear();
 
-  //testing get_dir and change_dir
-  printf("%s->\n", get_dir());
+  //prompt, ls and cd
+  char *a[2] = {"a", "-a"};
+  char *b[2] = {"b", "-b"};
+  puts("-----------------------------\nTesting prompt, ls, and cd\n-----------------------------");
+  printf("%s\n", get_prompt());
   change_dir("..");
-  printf("%s->\n", get_dir());
+  list_dir(b);
+  printf("%s\n", get_prompt());
   change_dir("./MyShell");
-  printf("%s->\n", get_dir());
+  list_dir(a);
+  printf("%s\n", get_prompt());
 
-  char *args[BUFF];
-  char input1[] = "the quick & brown > Fox";
-  parse_input(input1, args);
-  for (int i = 0; i < MAX_ARGS; i++){
-    if (args[i] == NULL)
-      break;
-    printf("%s\n", args[i]);
-  }
+
+  //I/O, Pipe, and Background detection
+  puts("-----------------------------\ntesting for I/O, pipe, and background commands\n-----------------------------");
+  
+  char *args[MAX_ARGS];
+  char s1[] = "cat < in.txt > out.txt";
+  printf("string 1: %s\n", s1);
+  parse_input(s1, args);
+  puts("1");
   check_IO(args);
   check_background(args);
+  check_pipes(args);
+  if (input_redir == TRUE){
+    printf("Input file: %s \n", input_file);
+  }
+  if (output_redir == TRUE){
+    printf("Output file: %s \n", output_file);
+  }
+  if (append_redir == TRUE){
+    printf("Appended output file: %s \n", output_file);
+  }
+  if (background == TRUE){
+    puts("background execution enabled");
+  }
+  if (piped == TRUE){
+    puts("Pipe command found");
+  }
 
-  while(1){
-    char *input = readline("->");
-    printf("%s\n", input);
-    free(input);
+  char s2[] = "cat >> out.txt";
+  printf("string 2: %s\n", s2);
+  parse_input(s2, args);
+  check_IO(args);
+  check_background(args);
+  check_pipes(args);
+  if (input_redir == TRUE){
+    printf("Input file: %s \n", input_file);
+  }
+  if (output_redir == TRUE){
+    printf("Output file: %s \n", output_file);
+  }
+  if (append_redir == TRUE){
+    printf("Appended output file: %s \n", output_file);
+  }
+  if (background == TRUE){
+    puts("background execution enabled");
+  }
+  if (piped == TRUE){
+    puts("Pipe command found");
+  }
+
+  char s3[] = "echo hello world | wc -l";
+  printf("string 3: %s\n", s3);
+  parse_input(s3, args);
+  check_IO(args);
+  check_background(args);
+  check_pipes(args);
+  if (input_redir == TRUE){
+    printf("Input file: %s \n", input_file);
+  }
+  if (output_redir == TRUE){
+    printf("Output file: %s \n", output_file);
+  }
+  if (append_redir == TRUE){
+    printf("Appended output file: %s \n", output_file);
+  }
+  if (background == TRUE){
+    puts("background execution enabled");
+  }
+  if (piped == TRUE){
+    puts("Pipe command found");
   }
   
   exit(0);
@@ -672,7 +744,7 @@ void shell_loop(){
     char *args[MAX_ARGS];
     //print out terminal promt;
     //get prompt string
-    char *prompt = get_dir();
+    char *prompt = get_prompt();
     //get input
     input = readline(prompt);
     add_history(input);
