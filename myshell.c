@@ -14,6 +14,7 @@ This is a unix-like shell for issuing commands through the terminal.
 -------------------*/
 #include<dirent.h>
 #include<fcntl.h>
+#include<pwd.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -518,7 +519,7 @@ char *get_prompt(){
   //copy current directory into string
   getcwd(cwd, sizeof(cwd));
   //get user's login
-  char *login = getlogin();
+  char *login = getpwuid(getuid())->pw_name;
   //used for formating
   char *temp1 = malloc(sizeof(char)* 2 * BUFF);
   char *temp2 = malloc(sizeof(char)*BUFF);
