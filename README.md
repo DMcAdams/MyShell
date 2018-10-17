@@ -24,7 +24,7 @@ built in commands:
 | ls, dir        | Outputs the contents of the current directory. Files beginning with "."|
 |                |    hidden unless the "-a" arg is used                                  |
 |-----------------------------------------------------------------------------------------|
-| pause          | Pauses the shell untill the enter key is pressed.                      |
+| pause          | Pauses the shell until the enter key is pressed.                      |
 |-----------------------------------------------------------------------------------------|
 | f1 | f2        | Pipes the output from f1 into f2                                       |
 |-----------------------------------------------------------------------------------------|
@@ -73,4 +73,76 @@ void check_background(char **args){
 }
 
 ## Piping
-    
+
+void check_pipes(char **args)
+    purpose: loops through args looping for a pipe command "|". If found, it sets that arg to NULL,
+        sets the piped flag to TRUE, and sets the next arg as the start of args2.
+
+void piping(char **args)
+    purpose: forks, then uses dupe2 to pipe the output from the child into the input of the parent.
+        the child executes args while the parent uses the global variable args2. Both exit on finish,
+        so use another fork before calling.
+
+## Batch and Scripts
+
+void batch_commands(char **args) 
+    purpose: works like the main shell_loop(), but focuses on one-off commmands instead of an endless loop.
+        checks for things like redirection and piping, then executes the commands
+
+int check_script(char *arg)
+    purpose: Checks a string to see if it ends in ".sh". Returns true if it does, or false otherwise.
+
+void run_script(char *arg)
+    purpose: Takes an arg that ends in ".sh" and attempts to open it. If successfull, it runs all commands 
+        in the script file line by line until it reaches the end of the file. 
+
+## External Execution
+
+void external_prog(char **args)
+    purpose: forks, and then has the child process attempts to run the args through the system's execvp() function, 
+        then exits. The parent process waits until the child process finishes, unless background exection is enabled.
+
+## Helper Functions
+
+char *get_prompt()
+    purpose: Uses getcwd() and getlogin() to retrieve user info and the current directory. It combines them into a single
+        prompt for readline, along with special color codes for the terminal.
+
+char *get_dir()
+    purpose: Like get_prompt(), but skips the color codes and only gets the current directory.
+
+## Internal Commands
+
+void change_dir(char *newdir)
+    purpose: takes and string and uses chdir() to try to change the current working directory.
+
+void list_dir(char **args)
+    purpose: Lists the files in the current directory. Excludes files beggining with '.' unless args[2] = "-a"
+
+void clear();
+    purpose: Uses an escape code to clear the terminal's output.
+
+void echo(char **args)
+    purpose: Skips the first arg ("echo"), and then prints out every other arg with a space between them.
+
+void environ();
+    purpose: Displays the value of the PATH system variable.
+
+void escape();
+    purpose: Kills the current process. Used to exit the shell during regular use.
+
+void help();
+    purpose: Prints out a helpful message.
+
+void pause_cmd();
+    purpose: pauses the shell untill the enter key is presses.
+
+## Main
+
+void shell_loop()
+    purpose: Follows an endless loop of fetch->parse->execute for user input. Input is obtained using the
+        readline library, and then goes through the rest of the functions to determine what to do with it.
+
+int main(int argc, char **argv)
+    purpose: The starting point for the shell. If additional args are supplied at launch it sends them off to batch_commands().
+        Otherwise, it startes the shell_loop().
