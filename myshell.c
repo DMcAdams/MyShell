@@ -124,7 +124,10 @@ void process_input(char *args[MAX_ARGS]){
   else if (!strcmp(args[0], "exit") || !strcmp(args[0], "quit") ) {
     escape();
   }
-
+  //help
+  else if (!strcmp(args[0], "help")) {
+    help();
+  }
   //list command
   else if (!strcmp(args[0], "ls") || !strcmp(args[0], "dir")) {
     list_dir(args);
@@ -249,6 +252,10 @@ void redirect(char **args){
   //run commands
   external_prog(args);
 }
+
+/*-----------------
+Background Execution
+-------------------*/
 
 //also checks for background execution command in input "&"
 void check_background(char *args[MAX_ARGS]){
@@ -523,6 +530,7 @@ char *get_prompt(){
   return temp1;
 }
 
+//just get the current directory
 char *get_dir(){
   //holds string containing directory
   char *cwd = malloc(sizeof(char)*BUFF);
@@ -635,7 +643,35 @@ void environ(){
 
 //displays a list of commands
 void help(){
-  puts("Shell commands:");
+puts(" _________________________________________________________________________________________");
+puts("|   Command      |                       Purpose                                          |");
+puts("|_________________________________________________________________________________________|");
+puts("| cd, chdir      | Changes current directory                                              |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| clear, clr     | Clears the terminal                                                    |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| echo           | Prints out the rest of the args                                        |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| environ        | Prints out the current environment variables                           |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| exit, quit     | Exit the shell                                                         |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| ls, dir        | Outputs the contents of the current directory. Files beginning with \".\"|");
+puts("|                |    hidden unless the \"-a\" arg is used                                  |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| pause          | Pauses the shell untill the enter key is pressed.                      |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| f1 | f2        | Pipes the output from f1 into f2                                       |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| f < input      | Redirects f's input to input                                           |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| f > output     | Redirects f's output to output                                         |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| f >> output    | Appends f's output to output                                           |");
+puts("|-----------------------------------------------------------------------------------------|");
+puts("| script.sh      | Will attempt to find a .sh file named script, and execute it's commands|");
+puts("|_________________________________________________________________________________________|");
+puts("\nThe shell will attempt to run external commands using the exec function");
 }
 
 //pauses the terminal until the enter key is pressed
