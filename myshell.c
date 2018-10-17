@@ -678,7 +678,8 @@ puts("\nThe shell will attempt to run external commands using the exec function"
 
 //pauses the terminal until the enter key is pressed
 void pause_cmd(){
-  char *temp = readline("Please press enter:");
+  //uses getpass to hide typed input
+  char *temp = getpass("Please press the enter key.");
   free (temp);
 }
 
