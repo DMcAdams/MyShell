@@ -56,15 +56,15 @@ void piping(char **args);
 void batch_commands(char **args);
 int check_script(char *arg);
 void run_script(char *arg);
+void external_prog(char **args);
 char *get_prompt();
 char *get_dir();
 void change_dir(char *newdir);
 void list_dir(char **args);
 void clear();
-void echo();
+void echo(char **args);
 void environ();
 void escape();
-void external_prog(char **args);
 void help();
 void pause_cmd();
 
